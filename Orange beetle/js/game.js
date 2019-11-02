@@ -449,7 +449,7 @@ class EndGame {
 
 	create() {
 		gameControl.inGame = false;
-		var backgroundImage = this.add.image(0, 0, 'bg_image');
+		var backgroundImage = this.add.tileSprite(0, 0, game.width, game.height, 'bg_image');
 		var win = this.add.image(config.width/2, config.height*0.325, 'victory');
 		win.anchor.setTo(0.5);
 		var winScale = config.width/(2*win.width);
