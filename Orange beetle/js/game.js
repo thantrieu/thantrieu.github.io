@@ -21,6 +21,8 @@ class Player {
 
 		this.bullets = game.add.group();
 		this.bullets.enableBody = true;
+		this.bullets.checkWorldBounds = true;
+		this.bullets.outOfBoundsKill = true;
 		this.bullets.physicsBodyType = Phaser.Physics.ARCADE;
 		this.bullets.createMultiple(500, 'player_bullet');
 		var mB = this.bullets.getFirstExists(false);
@@ -29,6 +31,7 @@ class Player {
 
 		// create sound:
 		this.shootSound = game.add.audio('shoot_sound');
+		this.shootSound.volume = 0.6;
 	}
 
 	appear() {
@@ -40,12 +43,14 @@ class Player {
 	}
 
 	shoot() {
-		game.time.events.repeat(250, 1000, function() {
+		game.time.events.repeat(350, 1000, function() {
 			var b = this.bullets.getFirstExists(false);
 			b.anchor.setTo(0.5);
 			b.reset(this.sprite.x, this.sprite.y - this.sprite.height/2);
 			b.scale.setTo(this.bScale);
 			b.body.velocity.y = -600;
+			b.checkWorldBounds = true;
+			b.outOfBoundsKill = true;
 			game.add.tween(b).to({angle: 360}, 300, 'Linear', true, 0, -1);
 			this.shootSound.play();
 		}, this);
@@ -91,23 +96,34 @@ class Enemy {
 	create() {
 		var sprites = ['enemy1', 'enemy2', 'enemy3', 'enemy4', "enemy5", 'enemy6'];
 
-		this.game.time.events.repeat(500, 50, function() {
-			var index = this.game.rnd.integerInRange(0, 5);
-			var px = this.game.rnd.integerInRange(40, game.width-40);
-			var py = 0;
-			var e = this.game.add.sprite(px, py, sprites[index]);
-			this.eScale = game.width/(8*e.width);
-			e.scale.setTo(this.eScale);
-			this.game.physics.enable(e, Phaser.Physics.ARCADE);
-			e.checkWorldBounds = true;
-			e.outOfBoundsKill = true;
-			e.body.velocity.y = 100;
-			this.enemies.add(e);
-			this.listEnemies.push(e);
-			this.game.world.bringToTop(this.enemies);
-		}, this);
+		for (var x = 1; x < 6; x++) {
+			for(var y = 1; y < 7; y++) {
+				var px = y*game.width/7;
+				var py = x*game.width/10 + 40;
+				var e = this.game.add.sprite(px, py, sprites[x - 1]);
+				e.hp = 100;
+				this.eScale = game.width/(12*e.width);
+				e.scale.setTo(this.eScale);
+				e.anchor.setTo(0.5);
+				this.game.physics.enable(e, Phaser.Physics.ARCADE);
+				this.enemies.add(e);
+				e.body.setCircle(e.width/2, e.width/4, e.height/4);
 
-		this.game.time.events.add(35000, function() {
+				this.listEnemies.push(e);
+				this.game.world.bringToTop(this.enemies);
+			}
+		}
+
+		// this.game.time.events.repeat(300, 80, function() {
+		// 	var e = this.enemies.getFirstExists();
+		// 	// e.checkWorldBounds = true;
+		// 	// e.outOfBoundsKill = true;
+		// 	if(e)			 {
+		// 		e.body.velocity.y = 100;
+		// 	}
+		// }, this);
+
+		this.game.time.events.add(15000, function() {
 			gameControl.gameState = 'END_GAME';
 		});
 	}
@@ -188,6 +204,7 @@ class GamePlay {
 		// }, this);
 		this.time.events.add(500, function() {
 			this.bgSound.play();
+			this.bgSound.volume = 1;
 			this.bgSound.loop = true;
 		}, this);
 
@@ -197,14 +214,14 @@ class GamePlay {
 		// display score text: 
 		this.txtScore = game.add.text(game.width/2, 20, "", 
 			{font: 'Consolas', fill: "#ffffff", align: 'center' });
-		this.txtScore.fontSize = 20;
+		this.txtScore.fontSize = game.width/(800)*36;
 		this.txtScore.anchor.setTo(0.5);
 
-		game.time.events.add(36000, function() {
-			if(gameControl.gameState !== 'END_GAME' || gameControl.gameState !== 'WAITING') {
-				this.state.start('endgame');
-			}
-		}, this);
+		// game.time.events.add(36000, function() {
+		// 	if(gameControl.gameState !== 'END_GAME' || gameControl.gameState !== 'WAITING') {
+		// 		this.state.start('endgame');
+		// 	}
+		// }, this);
 
 		// console.log(game.device);
 	}
@@ -244,18 +261,27 @@ class GamePlay {
 	}
 
 	enemyHitBulet(bullet, enemy) {
-		bullet.kill();
-		enemy.kill();
-		gameControl.score += 10;
-		this.soundCtr.playHittedSound();
-		var explode = game.add.sprite(enemy.x, enemy.y, 'explosion');
-		explode.scale.setTo(0.75);
-		explode.animations.add('explo');
-		explode.animations.play('explo', 30, false, true);
-		this.enemies.listEnemies.splice(this.enemies.listEnemies.indexOf(enemy), 1);
-		if(this.enemies.listEnemies.length <= 0 && gameControl.gameState === 'END_GAME') {
-			this.state.start('endgame');
+		enemy.hp -= 50;
+		if(enemy.hp <= 0) {
+			enemy.kill();
+			gameControl.score += 10;
+			this.soundCtr.playHittedSound();
+			var explode = game.add.sprite(enemy.body.x, enemy.body.y, 'explosion');
+			explode.scale.setTo(0.75);
+			explode.animations.add('explo');
+			explode.animations.play('explo', 30, false, true);
+			this.enemies.listEnemies.splice(this.enemies.listEnemies.indexOf(enemy), 1);
+			if(this.enemies.listEnemies.length <= 0 && gameControl.gameState === 'END_GAME') {
+				this.state.start('endgame');
+			}
 		}
+		bullet.kill();
+	}
+
+	render() {
+		// for(var i = 0; i < this.enemies.enemies.length; i++){
+		// 	game.debug.body(this.enemies.listEnemies[i]);
+		// }
 	}
 }
 
@@ -268,8 +294,9 @@ function waiting(game) {
 	var logo = game.add.image(config.width/2, config.height*0.3, 'logo');
 	logo.anchor.setTo(0.5);
 	logo.scale.setTo(config.width/(2.75*logo.width));
-
-	button.events.onInputDown.add(function(){
+	
+	button.events.onInputDown.add(function() {
+		game.enemies.create();
 		game.player.appear();
 		game.enableSomething();
 		button.kill();
@@ -288,7 +315,6 @@ function createTutorial(game){
 	createPointer();
 	game.input.enabled = true;
 	game.input.onDown.addOnce(function() {
-		game.enemies.create();
 		tt.kill();
 		gameControl.inGame = true;
 	});
@@ -361,7 +387,7 @@ class EndGame {
 		var backgroundImage = this.add.image(0, 0, 'bg_image');
 		var win = this.add.image(config.width/2, config.height*0.325, 'victory');
 		win.anchor.setTo(0.5);
-		var winScale = config.width/(4*win.width);
+		var winScale = config.width/(2*win.width);
 		win.scale.setTo(winScale*5);
 		win.alpha = 0;
 
@@ -376,7 +402,7 @@ class EndGame {
 
 		this.txtScore = game.add.text(config.width/2, config.height*0.6, "SCORE: " + gameControl.score, 
 			{font: 'Consolas', fill: "#ffffff", align: 'center' });
-		this.txtScore.fontSize = 40;
+		this.txtScore.fontSize = 56*game.width/(800);
 		this.txtScore.anchor.setTo(0.5);
 		gameControl.gameState = 'WAITING';
 		btnReplay.events.onInputDown.add(function() {
