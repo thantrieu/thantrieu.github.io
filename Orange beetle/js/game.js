@@ -2,18 +2,20 @@ var game = null;
 
 class Player {
 	constructor(game) {
-		this.sprite = null;
-		this.speedMove = 8;
-		this.game = game;
-		this.bullets = null;
+		this.sprite 	= null;
+		this.speedMove	= 8;
+		this.game 		= game;
+		this.bullets 	= null;
 		this.playerScale = 1;
-		this.bScale = 1;
+		this.bScale 	= 1;
 		this.shootSound = null;
+		this.canDie 	= true;
+		this.twnBody 	= null;
 	}
 
 	create() {
 		this.sprite = this.game.add.sprite(game.width/2, game.height*0.65, 'player');
-		this.playerScale = game.width/(5.25*this.sprite.width);
+		this.playerScale = game.width/(5.75*this.sprite.width);
 		this.sprite.anchor.setTo(0.5, 0.5);
 		this.sprite.scale.setTo(this.playerScale);
 		this.game.physics.enable(this.sprite, Phaser.Physics.ARCADE);
@@ -44,15 +46,17 @@ class Player {
 
 	shoot() {
 		game.time.events.repeat(350, 1000, function() {
-			var b = this.bullets.getFirstExists(false);
-			b.anchor.setTo(0.5);
-			b.reset(this.sprite.x, this.sprite.y - this.sprite.height/2);
-			b.scale.setTo(this.bScale);
-			b.body.velocity.y = -600;
-			b.checkWorldBounds = true;
-			b.outOfBoundsKill = true;
-			game.add.tween(b).to({angle: 360}, 300, 'Linear', true, 0, -1);
-			this.shootSound.play();
+			if(gameControl.shooting) {
+				var b = this.bullets.getFirstExists(false);
+				b.anchor.setTo(0.5);
+				b.reset(this.sprite.x, this.sprite.y - this.sprite.height/2);
+				b.scale.setTo(this.bScale);
+				b.body.velocity.y = -600;
+				b.checkWorldBounds = true;
+				b.outOfBoundsKill = true;
+				game.add.tween(b).to({angle: 360}, 300, 'Linear', true, 0, -1);
+				this.shootSound.play();
+			}
 		}, this);
 	}
 
@@ -90,7 +94,13 @@ class Enemy {
 		this.enemies = this.game.add.group();
 		this.enemies.enableBody = true;
 		this.enemies.physicsBodyType = Phaser.Physics.ARCADE;
+		this.bullets = game.add.group();
+		this.bullets.enableBody = true;
+		this.bullets.physicsBodyType = Phaser.Physics.ARCADE;
+		this.bullets.createMultiple(300, 'eBullet');
 		this.listEnemies = [];
+		this.isLeft = true;
+		this.readyMove = false;
 	}
 
 	create() {
@@ -126,6 +136,38 @@ class Enemy {
 		this.game.time.events.add(15000, function() {
 			gameControl.gameState = 'END_GAME';
 		});
+	}
+
+	shoot() {
+		game.time.events.repeat(1200, 300, function() {
+			if(this.listEnemies.length > 0) {
+				var pos = game.rnd.integerInRange(0, this.listEnemies.length-1);
+				var e = this.listEnemies[pos];
+				var bul = this.bullets.getFirstExists(false);
+				bul.reset(e.x, e.y);
+				bul.anchor.setTo(0.5);
+				bul.body.velocity.y = 200;
+				bul.checkWorldBounds = true;
+				bul.outOfBoundsKill = true;
+				bul.scale.setTo(this.eScale*0.6);
+				bul.alpha = 1;
+				game.add.tween(bul).to({alpha: 0}, 60, 'Linear', true, 0, -1, true);
+			}
+		}, this);
+	}
+
+	moveRightLeft() {
+		if(this.isLeft) {
+			this.enemies.x += 1;
+			if(this.enemies.x >= game.width/5 - 50) {
+				this.isLeft = false;
+			}
+		} else {
+			this.enemies.x -= 1;
+			if(this.enemies.x <= -70) {
+				this.isLeft = true;
+			}
+		}
 	}
 
 	die(game, x, y) {
@@ -186,7 +228,7 @@ class GamePlay {
 		this.scale.refresh();
 
 		this.physics.startSystem(Phaser.Physics.ARCADE);
-		var backgroundImage = this.add.image(0, 0, 'bg_image');
+		var backgroundImage = this.add.tileSprite(0, 0, game.width, game.height, 'bg_image');
 		this.createGround();
 
 		this.sound.boot();
@@ -231,6 +273,7 @@ class GamePlay {
 		this.player.sprite.input.enableDrag(true);
 		this.player.sprite.events.onDragStart.addOnce(function() {
 			this.player.shoot();
+			this.enemies.shoot();
 			gameControl.pointerTwn.stop();
 			gameControl.pointer.destroy();
 		}, this);
@@ -240,6 +283,8 @@ class GamePlay {
 		this.physics.arcade.collide(this.player.sprite, this.ground);
 		this.physics.arcade.overlap(this.player.bullets, this.enemies.enemies, 
 			this.enemyHitBulet, null, this);
+		this.physics.arcade.overlap(this.player.sprite, this.enemies.bullets, 
+			this.playerHitBullet, null, this);
 		if (this.cursors.left.isDown)
 		{
 			this.player.move('left');
@@ -248,7 +293,9 @@ class GamePlay {
 		{
 			this.player.move('right');
 		} 
-
+		if(this.enemies.readyMove) {
+			this.enemies.moveRightLeft();
+		}
 		this.txtScore.text = gameControl.scoreTxt + gameControl.score;
 	}
 
@@ -258,6 +305,22 @@ class GamePlay {
 		} else {
 			this.bgSound.pause();
 		}
+	}
+
+	playerHitBullet(p, b) {
+		b.kill();
+		gameControl.shooting = false;
+		if(this.player.canDie) {
+			this.player.twnBody = game.add.tween(this.player.sprite)
+			.to({alpha: 0}, 150, 'Linear', true, 0, 7, true);
+		}
+		this.player.canDie = false;
+
+		this.player.twnBody.onComplete.add(function() {
+			this.player.canDie  = true;
+			this.player.sprite.alpha = 1;
+			gameControl.shooting = true;
+		}, this);
 	}
 
 	enemyHitBulet(bullet, enemy) {
@@ -316,6 +379,7 @@ function createTutorial(game){
 	game.input.enabled = true;
 	game.input.onDown.addOnce(function() {
 		tt.kill();
+		game.enemies.readyMove = true;
 		gameControl.inGame = true;
 	});
 
@@ -342,7 +406,8 @@ var gameControl = {
 	score: 0,
 	gameState: 'none',
 	scoreTxt: 'SCORE: ',
-	inGame: false
+	inGame: false,
+	shooting: true,
 }
 
 function detectScreenOrientation() {
