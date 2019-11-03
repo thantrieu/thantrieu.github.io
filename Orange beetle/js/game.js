@@ -15,12 +15,11 @@ class Player {
 
 	create() {
 		this.sprite = this.game.add.sprite(game.width/2, game.height*0.65, 'player');
-		this.playerScale = game.width/(5.75*this.sprite.width);
+		this.playerScale = game.width/(6*this.sprite.width);
 		this.sprite.anchor.setTo(0.5, 0.5);
 		this.sprite.scale.setTo(this.playerScale);
 		this.game.physics.enable(this.sprite, Phaser.Physics.ARCADE);
 		this.sprite.body.collideWorldBounds = true;
-
 		this.bullets = game.add.group();
 		this.bullets.enableBody = true;
 		this.bullets.checkWorldBounds = true;
@@ -28,12 +27,32 @@ class Player {
 		this.bullets.physicsBodyType = Phaser.Physics.ARCADE;
 		this.bullets.createMultiple(500, 'player_bullet');
 		var mB = this.bullets.getFirstExists(false);
-		this.bScale = game.width/(12*mB.width);
+		this.bScale = game.width/(15*mB.width);
 		this.game.world.bringToTop(this.bullets);
 
+		this.oe = game.add.image(this.sprite.x + this.sprite.width/2, 
+			this.sprite.y - this.sprite.height/2, 'oe');
+		this.oe.anchor.setTo(0.5);
+		this.oe.scale.setTo(this.playerScale*0.5);
+		this.oe.visible = false;
+		this.oe.alpha = 1;
+		this.oeTwn = game.add.tween(this.oe.scale)
+		.to({x: this.playerScale*1.45, y: this.playerScale*1.45}, 1800, 'Linear', false);
+		this.oeTwn2 = game.add.tween(this.oe)
+		.to({alpha: 0}, 200, 'Linear', false, 1800);
 		// create sound:
 		this.shootSound = game.add.audio('shoot_sound');
 		this.shootSound.volume = 0.6;
+	}
+
+	resetOe() {
+		this.oe.reset(this.sprite.x + this.sprite.width/2, 
+			this.sprite.y - this.sprite.height/2);
+		this.oe.alpha = 1;
+		this.oe.scale.setTo(this.playerScale*0.5);
+		this.oe.visible = true;
+		this.oeTwn.start();
+		this.oeTwn2.start();
 	}
 
 	appear() {
@@ -51,7 +70,7 @@ class Player {
 				b.anchor.setTo(0.5);
 				b.reset(this.sprite.x, this.sprite.y - this.sprite.height/2);
 				b.scale.setTo(this.bScale);
-				b.body.velocity.y = -600;
+				b.body.velocity.y = -650;
 				b.checkWorldBounds = true;
 				b.outOfBoundsKill = true;
 				game.add.tween(b).to({angle: 360}, 300, 'Linear', true, 0, -1);
@@ -101,11 +120,43 @@ class Enemy {
 		this.listEnemies = [];
 		this.isLeft = true;
 		this.readyMove = false;
+		this.wave = 0;
 	}
 
 	create() {
+		this.wave = 1;
 		var sprites = ['enemy1', 'enemy2', 'enemy3', 'enemy4', "enemy5", 'enemy6'];
+		var pos = 1;
+		for (var x = 1; x < 5; x++) {
+			for(var y = 2; y < 6; y++) {
+				pos = 1;
+				if(x === 1 || x === 4 || y === 2 || y === 5) {
+					pos = 3;
+				}
+				var px = y*game.width/7;
+				var py = x*game.width/10 + 40;
+				var e = this.game.add.sprite(px, py, sprites[pos]);
+				e.hp = 40;
+				this.eScale = game.width/(12*e.width);
+				e.scale.setTo(this.eScale);
+				e.anchor.setTo(0.5);
+				this.game.physics.enable(e, Phaser.Physics.ARCADE);
+				this.enemies.add(e);
+				e.body.setCircle(e.width/2, e.width/4, e.height/4);
 
+				this.listEnemies.push(e);
+				this.game.world.bringToTop(this.enemies);
+			}
+		}
+
+		this.game.time.events.add(15000, function() {
+			gameControl.gameState = 'END_GAME';
+		});
+	}
+
+	create2() {
+		var sprites = ['enemy1', 'enemy2', 'enemy3', 'enemy4', "enemy5", 'enemy6'];
+		this.wave = 2;
 		for (var x = 1; x < 6; x++) {
 			for(var y = 1; y < 7; y++) {
 				var px = y*game.width/7;
@@ -124,22 +175,13 @@ class Enemy {
 			}
 		}
 
-		// this.game.time.events.repeat(300, 80, function() {
-		// 	var e = this.enemies.getFirstExists();
-		// 	// e.checkWorldBounds = true;
-		// 	// e.outOfBoundsKill = true;
-		// 	if(e)			 {
-		// 		e.body.velocity.y = 100;
-		// 	}
-		// }, this);
-
 		this.game.time.events.add(15000, function() {
 			gameControl.gameState = 'END_GAME';
 		});
 	}
 
 	shoot() {
-		game.time.events.repeat(1200, 300, function() {
+		game.time.events.repeat(1600, 300, function() {
 			if(this.listEnemies.length > 0) {
 				var pos = game.rnd.integerInRange(0, this.listEnemies.length-1);
 				var e = this.listEnemies[pos];
@@ -222,6 +264,27 @@ class GamePlay {
 		this.soundCtr = null;
 	}
 
+	createControlButton() {
+		this.playPauseBtn = game.add.button(game.width/2, 60*this.player.playerScale, 
+			'btn_pause');
+		this.playPauseBtn.anchor.setTo(0.5);
+		var s1 = game.width/(15*this.playPauseBtn.width);
+		var s2 = game.width/(10*this.playPauseBtn.width);
+		this.playPauseBtn.scale.setTo(s1);
+		this.playPauseBtn.events.onInputDown.add(function() {
+			if(game.paused === true) {
+				this.playPauseBtn.loadTexture('btn_pause');
+				this.playPauseBtn.reset(game.width/2, 60*this.player.playerScale);
+				this.playPauseBtn.scale.setTo(s1);
+			} else {
+				this.playPauseBtn.loadTexture('btn_play');
+				this.playPauseBtn.reset(game.width/2, game.height*0.65);
+				this.playPauseBtn.scale.setTo(s2);
+			}
+			game.paused = !game.paused;
+		}, this);
+	}
+
 	create() {
 		this.scale.pageAlignHorizontally = true;
 		this.scale.pageAlignVertically = true;
@@ -230,7 +293,6 @@ class GamePlay {
 		this.physics.startSystem(Phaser.Physics.ARCADE);
 		var backgroundImage = this.add.tileSprite(0, 0, game.width, game.height, 'bg_image');
 		this.createGround();
-
 		this.sound.boot();
 		this.bgSound = game.add.audio('bg_sound');
 
@@ -238,6 +300,7 @@ class GamePlay {
 
 		this.player = new Player(this);
 		this.player.create();
+		this.createControlButton();
 
 		this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -254,10 +317,16 @@ class GamePlay {
 		waiting(this);
 		this.soundCtr = new SoundCtr(this);
 		// display score text: 
-		this.txtScore = game.add.text(game.width/2, 20, "", 
+		this.txtScore = game.add.text(game.width*5/6, 60*this.player.playerScale, "", 
 			{font: 'Consolas', fill: "#ffffff", align: 'center' });
 		this.txtScore.fontSize = game.width/(800)*36;
 		this.txtScore.anchor.setTo(0.5);
+
+		this.txtLevel = game.add.text(game.width/6, 60*this.player.playerScale, 
+			gameControl.levelTxt + gameControl.level,
+		 {font: 'Consolas', fill: "#ffffff", align: 'center' });
+		this.txtLevel.fontSize = game.width/(800)*36;
+		this.txtLevel.anchor.setTo(0.5);
 
 		// game.time.events.add(36000, function() {
 		// 	if(gameControl.gameState !== 'END_GAME' || gameControl.gameState !== 'WAITING') {
@@ -293,7 +362,9 @@ class GamePlay {
 		{
 			this.player.move('right');
 		} 
-		if(this.enemies.readyMove) {
+		if(this.enemies.readyMove && this.enemies.wave === 2) {
+			gameControl.level = 2;
+			this.txtLevel.text = gameControl.levelTxt + gameControl.level;
 			this.enemies.moveRightLeft();
 		}
 		this.txtScore.text = gameControl.scoreTxt + gameControl.score;
@@ -310,6 +381,7 @@ class GamePlay {
 	playerHitBullet(p, b) {
 		b.kill();
 		gameControl.shooting = false;
+		this.player.resetOe();
 		if(this.player.canDie) {
 			this.player.twnBody = game.add.tween(this.player.sprite)
 			.to({alpha: 0}, 150, 'Linear', true, 0, 7, true);
@@ -320,6 +392,7 @@ class GamePlay {
 			this.player.canDie  = true;
 			this.player.sprite.alpha = 1;
 			gameControl.shooting = true;
+			this.player.oe.visible = false;
 		}, this);
 	}
 
@@ -330,12 +403,16 @@ class GamePlay {
 			gameControl.score += 10;
 			this.soundCtr.playHittedSound();
 			var explode = game.add.sprite(enemy.body.x, enemy.body.y, 'explosion');
-			explode.scale.setTo(0.75);
+			explode.scale.setTo(this.player.playerScale*2);
 			explode.animations.add('explo');
 			explode.animations.play('explo', 30, false, true);
 			this.enemies.listEnemies.splice(this.enemies.listEnemies.indexOf(enemy), 1);
-			if(this.enemies.listEnemies.length <= 0 && gameControl.gameState === 'END_GAME') {
-				this.state.start('endgame');
+			if(this.enemies.listEnemies.length <= 0) {
+				if(this.enemies.wave === 1) {
+					this.enemies.create2();
+				} else if(this.enemies.wave === 2) {
+					this.state.start('endgame');
+				}
 			}
 		}
 		bullet.kill();
@@ -405,9 +482,11 @@ var gameControl = {
 	scrOrientation: '',
 	score: 0,
 	gameState: 'none',
-	scoreTxt: 'SCORE: ',
+	scoreTxt: 'SCORE:',
 	inGame: false,
 	shooting: true,
+	level: 1,
+	levelTxt: 'LEVEL:'
 }
 
 function detectScreenOrientation() {
