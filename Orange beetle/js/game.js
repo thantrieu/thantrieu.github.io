@@ -142,7 +142,7 @@ class Enemy {
 				e.anchor.setTo(0.5);
 				this.game.physics.enable(e, Phaser.Physics.ARCADE);
 				this.enemies.add(e);
-				e.body.setCircle(e.width/2, e.width/4, e.height/4);
+				e.body.setCircle(e.width*2/3, e.width/4, e.height/4);
 
 				this.listEnemies.push(e);
 				this.game.world.bringToTop(this.enemies);
@@ -168,7 +168,7 @@ class Enemy {
 				e.anchor.setTo(0.5);
 				this.game.physics.enable(e, Phaser.Physics.ARCADE);
 				this.enemies.add(e);
-				e.body.setCircle(e.width/2, e.width/4, e.height/4);
+				e.body.setCircle(e.width*2/3, e.width/4, e.height/4);
 
 				this.listEnemies.push(e);
 				this.game.world.bringToTop(this.enemies);
@@ -402,7 +402,8 @@ class GamePlay {
 			enemy.kill();
 			gameControl.score += 10;
 			this.soundCtr.playHittedSound();
-			var explode = game.add.sprite(enemy.body.x, enemy.body.y, 'explosion');
+			var explode = game.add.sprite(enemy.x, enemy.y, 'explosion');
+			explode.anchor.setTo(0.5);
 			explode.scale.setTo(this.player.playerScale*2);
 			explode.animations.add('explo');
 			explode.animations.play('explo', 30, false, true);
