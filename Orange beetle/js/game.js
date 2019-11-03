@@ -380,6 +380,7 @@ class GamePlay {
 
 	playerHitBullet(p, b) {
 		b.kill();
+		this.soundCtr.playHittedSound();
 		gameControl.shooting = false;
 		this.player.resetOe();
 		if(this.player.canDie) {
