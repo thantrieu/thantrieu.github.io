@@ -410,9 +410,14 @@ class GamePlay {
 			this.enemies.listEnemies.splice(this.enemies.listEnemies.indexOf(enemy), 1);
 			if(this.enemies.listEnemies.length <= 0) {
 				if(this.enemies.wave === 1) {
-					this.enemies.create2();
+					game.time.events.add(1200, function() {
+						this.enemies.create2();
+					}, this);
 				} else if(this.enemies.wave === 2) {
-					this.state.start('endgame');
+					game.time.events.add(1200, function() {
+						this.state.start('endgame');
+					}, this);
+					
 				}
 			}
 		}
